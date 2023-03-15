@@ -1,0 +1,27 @@
+<collection> 
+
+<!--
+<file >
+<source>C:\</source>
+<sourcepath>C:\Users\ncdex1246\Desktop\FCS\BHAVCOPY</sourcepath>
+<mockpath>C:\Users\ncdex1246\Desktop\Backup\BHAVCOPY</mockpath>
+</file>
+-->
+
+<file >
+<source>C:\Users\ncdex1246\Desktop\</source>
+<sourcepath>C:\Users\ncdex1246\Desktop\FCS\MEMBERCONTACTDETAILS\</sourcepath>
+<mockpath>C:\Users\ncdex1246\Desktop\Backup\MEMBERCONTACTDETAILS\</mockpath>
+</file>
+
+<!--
+<file >
+<source>C:\</source>
+<sourcepath>C:\Users\ncdex1246\Desktop\FCS\MarginFiles\</sourcepath>
+<mockpath>C:\Users\ncdex1246\Desktop\Backup\MarginFiles</mockpath>
+</file>
+-->
+
+</collection>
+
+
