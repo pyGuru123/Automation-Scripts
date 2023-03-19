@@ -9,6 +9,5 @@ time.sleep(2)
 while True:
     time.sleep(2)
     pyautogui.click(1450, 760)
-    # pyautogui.write(string)
     pyautogui.typewrite(string1, interval=0.1)
     pyautogui.press('enter')
