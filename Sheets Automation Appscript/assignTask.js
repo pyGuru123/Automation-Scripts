@@ -1,9 +1,9 @@
 var members = {
-    "prajjwal pathak" : 61430062,
-    "umrah" : 61410114
+    "prajjwal pathak" : 61436762,
+    "umrah" : 61497114
   }
   
-  var API_KEY = 'pk_61430062_QMFSUR5NZ072733U1FU95TTSCBN1MJRE'
+  var API_KEY = ''
   headers = {
     "Content-Type": "application/json",
     "Authorization": API_KEY
@@ -53,7 +53,7 @@ var members = {
           "headers" : headers
         }
   
-        var response = UrlFetchApp.fetch("https://api.clickup.com/api/v2/list/900200286532/task", options)
+        var response = UrlFetchApp.fetch("https://api.clickup.com/api/v2/list/900200157532/task", options)
         response = JSON.parse(response);
         task_id = response['id']
         task_status = response['status']['status']
