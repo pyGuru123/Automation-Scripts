@@ -3,7 +3,9 @@ function fetchUserId(e) {
     if (sheet.getName() == "Clickup Users") {
      
   
-      var API_KEY = 'pk_6xxxx62_QMFSUR5NZ0xxxxxxxxxxxxxx'
+      var API_KEY = 'pk_6xxxx62_QMFSUR5NZ0xxx
+      
+      xxxxxxxxxxx'
       var headers = {
         "Content-Type": "application/json",
         "Authorization": API_KEY
