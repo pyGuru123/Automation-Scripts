@@ -2,12 +2,13 @@ import time
 import json
 import requests
 from bs4 import BeautifulSoup
+from loguru import logger
 
 headers = {
     "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
 }
 
-def scrape_page(url: str) -> list[str]:
+def scrape_page_products_listing(url: str) -> list[str]:
     try:
         s = requests.Session()
         response = s.get(url, headers=headers)
@@ -24,10 +25,10 @@ def scrape_page(url: str) -> list[str]:
 
                 return product_urls
     except Exception as e:
-        print(e)
+        logger.error(f"{e} in myntra")
         return []
 
-def scrape_page_products_listing(url: str):
+def scrape_product(url: str):
     try:
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.content, 'html.parser') 
@@ -36,23 +37,24 @@ def scrape_page_products_listing(url: str):
                 data = s.string.strip('window.__myx = ')
                 json_data = json.loads(data)['pdpData']
 
-                rating = float("{:.2f}".json_data['ratings']['averageRating'])
+                rating = "{:.2f}".format(json_data['ratings']['averageRating'])
                 seller_name = json_data["sellers"][0]['sellerName']
                 seller_address = json_data["sellers"][0]['sellerAddress']['address']
 
-                return [rating, seller_name, seller_address]
+                return [rating, seller_name, seller_address, "Myntra"]
 
-    except:
+    except Exception as e:
+        logger.error(f"{e} in myntra")
         return None
 
 def scrape_myntra(url: str):
+    logger.info("Scraping Myntra")
+
     seller_data = []
     product_urls = scrape_page_products_listing(url)
-    print(len(product_urls))
-
-    if product_urls[:5]:
-      for index, product_url in enumerate(product_urls[:5]):
-          print(f"Product {index}")
+    if product_urls:
+      for index, product_url in enumerate(product_urls[:10]):
+          logger.info(f"Myntra : {index+1}")
           data = scrape_product(product_url)
           if data:
               seller_data.append(data)
@@ -60,9 +62,3 @@ def scrape_myntra(url: str):
           time.sleep(1)
 
     return seller_data
-
-
-if __name__ == '__main__':
-    url = "https://www.myntra.com/mens-tshirt"
-    seller_data = scrape_myntra(url)
-    print(seller_data)

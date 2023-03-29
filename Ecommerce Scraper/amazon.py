@@ -1,6 +1,7 @@
 import time
 import requests
 from bs4 import BeautifulSoup
+from loguru import logger
 
 headers = {
 	"User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
@@ -62,16 +63,19 @@ def scrape_product(url: str):
 		soup = BeautifulSoup(response.content, 'html.parser')
 		seller_name, seller_address = get_business_name_and_address(soup)
 
-		return [rating, seller_name, seller_address]
+		return [rating, seller_name, seller_address, "Amazon"]
 
 	except:
 		return None
 
 def scrape_amazon(url: str):
+	logger.info("Scraping Amazon")
+
 	seller_data = []
 	product_urls = scrape_page_products_listing(url)
 	if product_urls:
-		for product_url in product_urls[:5]:
+		for index, product_url in enumerate(product_urls[:10]):
+			logger.info(f"Amazon : {index+1}")
 			data = scrape_product(product_url)
 			if data:
 				seller_data.append(data)
@@ -79,8 +83,3 @@ def scrape_amazon(url: str):
 			time.sleep(1)
 
 	return seller_data
-
-if __name__ == '__main__':
-	url = "https://www.amazon.com/s?k=indian+handicrafts&crid=2XDYOLH5NMP2B&sprefix=indian+handicrafts%2Caps%2C728&ref=sr_pg_2"
-	seller_data = scrape_amazon(url)
-	print(seller_data)

@@ -2,6 +2,7 @@ import time
 import requests
 import json
 from bs4 import BeautifulSoup
+from loguru import logger
 
 headers = {
     "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
@@ -55,7 +56,7 @@ def get_seller_address(soup):
                         seller_info = key['widget']['data']['listingManufacturerInfo']['value'] 
                         return seller_info['detailedComponents'][0]['value']['callouts'][0]
     except Exception as e:
-        print(e)
+        logger.error(f"{e} in Flipkart")
         return ""
 
 def scrape_product(url: str):
@@ -66,18 +67,20 @@ def scrape_product(url: str):
         seller_name = get_seller_name(soup)
         seller_address = get_seller_address(soup)
 
-        return [rating, seller_name, seller_address]
+        return [rating, seller_name, seller_address, "Flipkart"]
 
-    except:
+    except Exception as e:
+        logger.error(f"{e} in Flipkart @ {url}")
         return None
 
 def scrape_flipkart(url: str):
+    logger.info("Scraping Flipkart")
+
     seller_data = []
     product_urls = scrape_page_products_listing(url)
-    print(len(product_urls))
-    if product_urls[:5]:
-        for index, product_url in enumerate(product_urls[:5]):
-            print(f"Product {index}")
+    if product_urls:
+        for index, product_url in enumerate(product_urls[:10]):
+            logger.info(f"Flipkart : {index+1}")
             data = scrape_product(product_url)
             if data:
                 seller_data.append(data)
@@ -85,9 +88,3 @@ def scrape_flipkart(url: str):
             time.sleep(1)
 
     return seller_data
-
-
-if __name__ == '__main__':
-    url = "https://www.flipkart.com/search?q=indian+handicraft"
-    seller_data = scrape_flipkart(url)
-    print(seller_data)
