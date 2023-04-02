@@ -24,25 +24,20 @@ def scrape_page_products_listing(url: str) -> list[str]:
     except:
         return []
 
-def get_product_rating(soup):
-    try:
-        rating = soup.select_one("[class*='_3LWZlK']").text
-    except:
-        rating = ""
-
-    return rating
-
-def get_seller_name(soup):
+def get_seller_name_and_rating(soup):
     try:
         seller_name = ""
+        rating = ""
         name = soup.select_one("[id$='sellerName']").text
         for ch in name:
             if ch.isalpha() or ch==" ":
                 seller_name += ch
+            else:
+                rating += ch
     except:
-        seller_name = ""
+        seller_name, rating = "", ""
 
-    return seller_name
+    return seller_name, rating
 
 def get_seller_address(soup):
     try:
@@ -53,21 +48,26 @@ def get_seller_address(soup):
                 data = json_data['pageDataV4']['page']['data']['10005']
                 for key in data:
                     if key['id'] == 28:
-                        seller_info = key['widget']['data']['listingManufacturerInfo']['value'] 
-                        return seller_info['detailedComponents'][0]['value']['callouts'][0]
+                        seller_info = key['widget']['data']['listingManufacturerInfo']['value']['detailedComponents']
+                        manufacturer = seller_info[0]['value']['callouts'][0]
+                        if len(seller_info) > 1:
+                            packer = seller_info[-1]['value']['callouts'][0]
+                        else:
+                            packer = ""
+
+                        return manufacturer, packer
     except Exception as e:
         logger.error(f"{e} in Flipkart")
-        return ""
+        return "", ""
 
 def scrape_product(url: str):
     try:
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.content, 'html.parser') 
-        rating = get_product_rating(soup)
-        seller_name = get_seller_name(soup)
-        seller_address = get_seller_address(soup)
+        seller_name, rating = get_seller_name_and_rating(soup)
+        manufacturer, packer = get_seller_address(soup)
 
-        return [rating, seller_name, seller_address, "Flipkart"]
+        return [rating, seller_name, manufacturer, packer]
 
     except Exception as e:
         logger.error(f"{e} in Flipkart @ {url}")

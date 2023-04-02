@@ -37,11 +37,14 @@ def scrape_product(url: str):
                 data = s.string.strip('window.__myx = ')
                 json_data = json.loads(data)['pdpData']
 
-                rating = "{:.2f}".format(json_data['ratings']['averageRating'])
                 seller_name = json_data["sellers"][0]['sellerName']
                 seller_address = json_data["sellers"][0]['sellerAddress']['address']
+                size_sellers = json_data['sizes'][0]['sizeSellerData']
+                importer = size_sellers[0]['importerInfo']
+                manufacturer = size_sellers[0]['manufacturerInfo']
+                packer = size_sellers[0]['packerInfo']
 
-                return [rating, seller_name, seller_address, "Myntra"]
+                return [seller_name, seller_address, importer, manufacturer, packer]
 
     except Exception as e:
         logger.error(f"{e} in myntra")
