@@ -1,0 +1,40 @@
+2, head of hr is not in allowed designations
+3, city bengaluru not in required cities
+3, state karnataka not in required states
+3, hr head is not in allowed designations
+3, Number of employess not in Range(0,300)
+4, assistant vice president- human resources is not in allowed designations
+5, human resources director is not in allowed designations
+7, city ghaziabad not in required cities
+7, state uttar pradesh not in required states
+8, state uttar pradesh not in required states
+8, lead talent acquisition is not in allowed designations
+8, Number of employess not in Range(0,300)
+10, head of talent acquisition is not in allowed designations
+11, state uttar pradesh not in required states
+11, vice president human resource is not in allowed designations
+12, city bengaluru not in required cities
+12, state karnataka not in required states
+13, human resources director is not in allowed designations
+13, Number of employess not in Range(0,300)
+13, latest funding round : Other not in required values
+15, city chennai not in required cities
+15, state tamil nadu not in required states
+15, vice president human resources is not in allowed designations
+16, lead - talent acquisition, evp & new initiatives is not in allowed designations
+16, Number of employess not in Range(0,300)
+17, head of human resources is not in allowed designations
+19, work email domain not matching company/website
+20, city bengaluru not in required cities
+20, state karnataka not in required states
+20, hr business partner consultant is not in allowed designations
+20, Number of employess not in Range(0,300)
+21, city bengaluru not in required cities
+21, state karnataka not in required states
+22, city chennai not in required cities
+22, state tamil nadu not in required states
+22, director - hr is not in allowed designations
+23, human resources business partner - specialist is not in allowed designations
+24, city bengaluru not in required cities
+24, state karnataka not in required states
+24, phone number is invalid
