@@ -1,82 +1,94 @@
 import time
-import random
-import requests
-from bs4 import BeautifulSoup
 from loguru import logger
+from bs4 import BeautifulSoup
+from typing import List, Union
 
-headers = {
-    "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
-    "Accept-Language" : "en-US"
-}
+from app.sellers_scraper.utils import get_random_time, get_page_content
+
 
 def scrape_page_products_listing(url: str) -> list[str]:
     try:
-        response = requests.get(url, headers=headers)
-        html = response.content
-        soup = BeautifulSoup(html, 'html.parser')
-        links = soup.select("[class*='a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal']")
+        soup = get_page_content(url)
+        logger.info(soup.title)
+        links = soup.select(
+            "[class*='a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal']"
+        )
         product_urls = []
         for link in links:
-            url = "https://amazon.com" + link.get('href')
-            if 'sspa' not in url:
+            url = "https://amazon.com" + link.get("href")
+            if "sspa" not in url:
                 product_urls.append(url)
 
         return product_urls
-    except:
+    except Exception as e:
+        logger.error(e)
         return []
 
-def get_business_name_rating_and_address(soup):
+
+def get_business_rating(soup: BeautifulSoup) -> str:
     try:
-        seller_name = soup.find('h1', attrs={"id":"seller-name"}).text
-    except:
-        seller_name = ""
-        
-    try:
-        rating = soup.find('span', attrs={"id": "effective-timeperiod-rating-year-description"}).text
+        rating = soup.find(
+            "span", attrs={"id": "effective-timeperiod-rating-year-description"}
+        ).text
     except:
         rating = ""
 
+    return rating
+
+
+def get_business_name(soup: BeautifulSoup) -> str:
+    try:
+        seller_name = soup.find("h1", attrs={"id": "seller-name"}).text
+    except:
+        seller_name = ""
+
+    return seller_name
+
+
+def get_business_address(soup: BeautifulSoup) -> str:
     try:
         seller_address = ""
         address_lines = soup.select("[class*='a-row a-spacing-none indent-left']")
         for line in address_lines:
-            seller_address += (line.text + '\n')
+            seller_address += line.text + "\n"
     except:
         seller_address = ""
 
-    return rating, seller_name, seller_address
+    return seller_address
 
-def scrape_product(url: str):
+
+def scrape_product(url: str) -> Union[List[str], None]:
     try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = get_page_content(url)
         seller_id = soup.find("input", attrs={"id": "deliveryBlockSelectMerchant"})
         if not seller_id:
             return None
 
-        seller_profile_url = f"https://www.amazon.com/sp?ie=UTF8&seller={seller_id['value']}"
-        response = requests.get(seller_profile_url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        rating, seller_name, seller_address = get_business_name_rating_and_address(soup)
+        seller_profile_url = (
+            f"https://www.amazon.com/sp?ie=UTF8&seller={seller_id['value']}"
+        )
+        soup = get_page_content(seller_profile_url)
+        rating = get_business_rating(soup)
+        seller_name = get_business_name(soup)
+        seller_address = get_business_address(soup)
 
         return [rating, seller_name, seller_address]
 
     except:
         return None
 
-def scrape_amazon(url: str):
+
+def scrape_amazon(url: str) -> List[List[str]]:
     logger.info("Scraping Amazon")
 
     seller_data = []
     product_urls = scrape_page_products_listing(url)
-    if product_urls:
-        for index, product_url in enumerate(product_urls[:10]):
-            logger.info(f"Amazon : {index+1}")
-            data = scrape_product(product_url)
-            if data:
-                seller_data.append(data)
+    for index, product_url in enumerate(product_urls[:3]):
+        logger.info(f"Amazon : {index+1}")
+        data = scrape_product(product_url)
+        if data:
+            seller_data.append(data)
 
-            random_time = random.randrange(1, 3)
-            time.sleep(random_time)
+        time.sleep(get_random_time())
 
     return seller_data
