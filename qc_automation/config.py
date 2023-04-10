@@ -37,7 +37,10 @@ def get_constraints(temp_file: BinaryIO) -> dict:
                 desg_bucekt.append(desg)
         desg_bucekt = list(map(lambda x: x.lower(), desg_bucekt))
 
-    sample_length = int(df.loc[0, "quantity"])
+    quantity = df.loc[0, "quantity"]
+    sample_length = 0
+    if quantity:
+        sample_length = int(quantity)
 
     num_emp = df.loc[0, "# employees"]
     if str(num_emp) != "n/a":
@@ -89,8 +92,8 @@ def get_exclusion(temp_file: BinaryIO) -> dict[str, list]:
     exclusion_dict: dict[str, list] = {"phone": [], "email": [], "website": []}
 
     temp_df = pd.ExcelFile(temp_file)
-    if len(temp_df.sheet_names) >= 3:
-        df = pd.read_excel(temp_file, sheet_name=2)
+    if len(temp_df.sheet_names) >= 3 and 'Exclusion' in temp_df.sheet_names:
+        df = pd.read_excel(temp_file, sheet_name='Exclusion')
         df.columns = [column.lower() for column in df.columns]
 
         for column in list(df.columns):
@@ -109,3 +112,8 @@ def get_exclusion(temp_file: BinaryIO) -> dict[str, list]:
     )
 
     return exclusion_dict
+
+def validate_phone(phone):
+    if not phone.startswith("+"):
+        phone = "+" + phone
+    return phone.replace(".0","").replace("+91", "").strip()

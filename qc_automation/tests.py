@@ -12,6 +12,7 @@ from app.qc_automation.config import (
     get_constraints,
     get_exclusion,
     remove_https,
+    validate_phone
 )
 from app.qc_automation.highlighter import highlight_logs
 
@@ -31,7 +32,7 @@ def exception_handler(func: Callable) -> Callable:
 def test_check_sample_length(
     df: pd.DataFrame, length: int, file_logger: logging.Logger
 ) -> None:
-    if not len(df) >= length:
+    if len(df) < length:
         file_logger.log(
             logging.DEBUG,
             f"{len(df)+2}@1: length of excel file less than requirement",
@@ -50,6 +51,22 @@ def test_no_duplicate_rows(df: pd.DataFrame, file_logger: logging.Logger) -> Non
                 logging.DEBUG,
                 f"{index+2}@1: duplicate values found for {duplicated.iloc[i]['First Name']}",
             )
+
+@exception_handler
+def test_duplicate_values(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    columns = ["work email", "primary phone", "person linkedin url", "company linkedin url"]
+    for column in columns:
+        column_index = list(df.columns).index(column) + 1
+        duplicated = df[
+            df.duplicated(subset=[column], keep=False)
+        ]
+        indices = duplicated.index.to_list()
+        if indices:
+            for i, index in enumerate(indices):
+                file_logger.log(
+                    logging.DEBUG,
+                    f"{index+2}@{column_index}: duplicate values for {column} at row {index+2}",
+                )
 
 
 @exception_handler
@@ -73,7 +90,7 @@ def test_match_industries(
 ) -> None:
     column_index = list(df.columns).index("industry") + 1
     for index, row in df.iterrows():
-        industry = row["industry"].lower()
+        industry = str(row["industry"]).lower()
         if industry not in industries:
             file_logger.log(
                 logging.DEBUG,
@@ -204,6 +221,18 @@ def test_additional_columns(
                 f"{len(df)+2}@1: additional column {column} not in file",
             )
 
+@exception_handler
+def test_phone_number_length(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    column_index = list(df.columns).index("primary phone") + 1
+    phone_numbers = df["primary phone"].to_list()
+    for index, phone in enumerate(phone_numbers):
+        phone = validate_phone(str(phone))
+        if len(phone) != 10:
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index}: phone number is of invalid length",
+            )
+
 
 @exception_handler
 def test_valid_phone_and_emails(df: pd.DataFrame, file_logger: logging.Logger) -> None:
@@ -211,7 +240,7 @@ def test_valid_phone_and_emails(df: pd.DataFrame, file_logger: logging.Logger) -
         column_index = list(df.columns).index("phone verified") + 1
         phone_numbers = df["phone verified"].to_list()
         for index, phone in enumerate(phone_numbers):
-            if phone.lower() != "valid":
+            if str(phone).lower() not in ["valid", "nan"]:
                 file_logger.log(
                     logging.DEBUG,
                     f"{index+2}@{column_index}: phone number is invalid",
@@ -219,9 +248,9 @@ def test_valid_phone_and_emails(df: pd.DataFrame, file_logger: logging.Logger) -
 
     if "email verified" in list(df.columns):
         column_index = list(df.columns).index("email verified") + 1
-        phone_numbers = df["email verified"].to_list()
-        for index, phone in enumerate(phone_numbers):
-            if phone.lower() != "valid":
+        emails = df["email verified"].to_list()
+        for index, email in enumerate(emails):
+            if str(email).lower() not in ["valid", "nan"]:
                 file_logger.log(
                     logging.DEBUG,
                     f"{index+2}@{column_index}: email is invalid",
@@ -320,11 +349,9 @@ def test_count_people_per_company(
             count = groups[company]
             if len(count) > limit:
                 for index in count[limit:]:
-                    if column_index == 0:
-                        column_index = 1
                     file_logger.log(
                         logging.DEBUG,
-                        f"{index+2}@{column_index}: number of people per company > requirements",
+                        f"{index+2}@{column_index+1}: number of people per company > requirements",
                     )
 
 
@@ -360,6 +387,7 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         # FUNCTION CALLS ########################################
         test_check_sample_length(df, length, file_logger)
         test_no_duplicate_rows(df, file_logger)
+        test_duplicate_values(df, file_logger)
         test_required_columns_not_empty(df, required_columns, file_logger)
         test_match_industries(df, industries, file_logger)
         test_location_matching(df, cities, states, countries, file_logger)
@@ -369,6 +397,7 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         test_comapany_email_matching(df, file_logger)
         test_additional_columns(df, additional, file_logger)
         # test_additonalColumnsInReq(df, additional_req, file_logger)
+        test_phone_number_length(df, file_logger)
         test_valid_phone_and_emails(df, file_logger)
         test_social_profile_urls(df, file_logger)
         test_excluded_phone_numbers(df, exclusion_dict["phone"], file_logger)
