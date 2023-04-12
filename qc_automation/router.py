@@ -21,13 +21,17 @@ router = APIRouter(prefix="/qc_automation", tags=["qc_automation"])
 
 
 @router.post("/upload_file/")
-async def test_excel_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)) -> str:
-    if file.filename.endswith('.xlsx'):
+async def test_excel_file(
+    background_tasks: BackgroundTasks, file: UploadFile = File(...)
+) -> str:
+    if file.filename.endswith(".xlsx"):
         LOG_DIR = get_log_path()
-        log_file_name = f"{os.path.splitext(file.filename)[0]}-{int(time.time() * 100)}.txt"
+        log_file_name = (
+            f"{os.path.splitext(file.filename)[0]}-{int(time.time() * 100)}.txt"
+        )
         log_path = os.path.join(LOG_DIR, log_file_name)
 
-        filename = file.filename.split('.')[0] + "-filtered.xlsx"
+        filename = file.filename.split(".")[0] + "-filtered.xlsx"
         try:
             background_tasks.add_task(main, file.file, log_path, filename)
             return filename

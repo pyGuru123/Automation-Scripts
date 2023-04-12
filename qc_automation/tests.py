@@ -8,11 +8,12 @@ from loguru import logger
 from typing import BinaryIO, Callable
 
 from app.qc_automation.autologger import Logger
-from app.qc_automation.config import (
+from app.qc_automation.utils import (
     get_constraints,
     get_exclusion,
     remove_https,
-    validate_phone
+    validate_phone,
+    fix_revenue,
 )
 from app.qc_automation.highlighter import highlight_logs
 
@@ -52,14 +53,18 @@ def test_no_duplicate_rows(df: pd.DataFrame, file_logger: logging.Logger) -> Non
                 f"{index+2}@1: duplicate values found for {duplicated.iloc[i]['First Name']}",
             )
 
+
 @exception_handler
 def test_duplicate_values(df: pd.DataFrame, file_logger: logging.Logger) -> None:
-    columns = ["work email", "primary phone", "person linkedin url", "company linkedin url"]
+    columns = [
+        "work email",
+        "primary phone",
+        "person linkedin url",
+        "company linkedin url",
+    ]
     for column in columns:
         column_index = list(df.columns).index(column) + 1
-        duplicated = df[
-            df.duplicated(subset=[column], keep=False)
-        ]
+        duplicated = df[df.duplicated(subset=[column], keep=False)]
         indices = duplicated.index.to_list()
         if indices:
             for i, index in enumerate(indices):
@@ -85,13 +90,47 @@ def test_required_columns_not_empty(
 
 
 @exception_handler
+def test_match_emails(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    column_index = list(df.columns).index("work email") + 1
+    for index, row in df.iterrows():
+        first = str(df["first name"])
+        last = str(df["last name"])
+        work_email = str(df["work email"])
+        personal_email = str(df["personal email"])
+        company = str(df["company"])
+
+        if not (first in work_email or last in work_email):
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index}: work email not matching with first & last name",
+            )
+
+        if personal_email != "nan":
+            if not (
+                first in personal_email
+                or last in personal_email
+                or company in personal_email
+            ):
+                file_logger.log(
+                    logging.DEBUG,
+                    f"{index+2}@{column_index}: personal email not matching with first, last or company name",
+                )
+
+
+@exception_handler
 def test_match_industries(
     df: pd.DataFrame, industries: list, file_logger: logging.Logger
 ) -> None:
     column_index = list(df.columns).index("industry") + 1
     for index, row in df.iterrows():
-        industry = str(row["industry"]).lower()
-        if industry not in industries:
+        industry_name = str(row["industry"]).lower()
+        valid_industry = False
+        for industry in industries:
+            if industry in industry_name:
+                valid_industry = True
+                break
+
+        if not valid_industry:
             file_logger.log(
                 logging.DEBUG,
                 f"{index+2}@{column_index}: {industry} is not in required industries",
@@ -101,19 +140,19 @@ def test_match_industries(
 @exception_handler
 def test_location_matching(
     df: pd.DataFrame,
-    cities: list,
-    states: list,
-    countries: list,
+    person_location: list[list],
+    headers: list,
     file_logger: logging.Logger,
 ) -> None:
-    city_index = list(df.columns).index("city") + 1
-    state_index = list(df.columns).index("state") + 1
-    country_index = list(df.columns).index("country") + 1
+    cities, states, countries = person_location
+    city_index = list(df.columns).index(headers[0]) + 1
+    state_index = list(df.columns).index(headers[1]) + 1
+    country_index = list(df.columns).index(headers[2]) + 1
 
     for index, row in df.iterrows():
-        city = str(row["city"]).lower()
-        state = str(row["state"]).lower()
-        country = str(row["country"]).lower()
+        city = str(row[headers[0]]).lower()
+        state = str(row[headers[1]]).lower()
+        country = str(row[headers[2]]).lower()
 
         if cities and city not in cities:
             file_logger.log(
@@ -166,13 +205,18 @@ def test_number_of_employess_in_range(
     df: pd.DataFrame, min_emp: int, max_emp: int, file_logger: logging.Logger
 ) -> None:
     column_index = list(df.columns).index("# employees") + 1
+    for index, employee in df["# employees"].astype(str).iteritems():
+        inRange = False
+        if employee != "nan":
+            if "-" in employee:
+                min_e, max_e = map(int, employee.split("-"))
+                if min_emp <= min_e <= max_emp or min_emp <= max_e <= max_emp:
+                    inRange = True
+            else:
+                if min_emp <= int(employee) <= max_emp:
+                    inRange = True
 
-    notInRange = df[(df["# employees"] <= min_emp) | (df["# employees"] >= max_emp)][
-        "# employees"
-    ]
-    indices = notInRange.index.to_list()
-    if indices:
-        for i, index in enumerate(indices):
+        if not inRange:
             file_logger.log(
                 logging.DEBUG,
                 f"{index+2}@{column_index}: Number of employess not in Range({min_emp},{max_emp})",
@@ -221,12 +265,15 @@ def test_additional_columns(
                 f"{len(df)+2}@1: additional column {column} not in file",
             )
 
+
 @exception_handler
-def test_phone_number_length(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+def test_phone_number_length(
+    df: pd.DataFrame, phone_codes: list[str], file_logger: logging.Logger
+) -> None:
     column_index = list(df.columns).index("primary phone") + 1
     phone_numbers = df["primary phone"].to_list()
     for index, phone in enumerate(phone_numbers):
-        phone = validate_phone(str(phone))
+        phone = validate_phone(str(phone), phone_codes)
         if len(phone) != 10:
             file_logger.log(
                 logging.DEBUG,
@@ -338,6 +385,40 @@ def test_excluded_websites(
 
 
 @exception_handler
+def test_annual_revenue_range(
+    df: pd.DataFrame, revenue_range: list[int], file_logger: logging.Logger
+) -> None:
+    min_revenue, max_revenue = revenue_range
+    column_index = list(df.columns).index("annual revenue")
+
+    for index, revenue in df["annual revenue"].iteritems():
+        revenue = fix_revenue(str(revenue))
+        isValid = True
+
+        if min_revenue != -1 and max_revenue != -1:
+            if not (min_revenue <= revenue <= max_revenue):
+                isValid = False
+                message = f"annual revenue not in range {min_revenue}-{max_revenue}"
+        elif min_revenue != -1:
+            if not (revenue >= min_revenue):
+                isValid = False
+                message = f"annual revenue is less than {min_revenue}"
+        elif max_revenue != -1:
+            if not (revenue <= max_revenue):
+                isValid = False
+                message = f"annual revenue is greater than {max_revenue}"
+        elif revenue == 0:
+            isValid = False
+            message = f"annual revenue value missing"
+
+        if not isValid:
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index+1}: {message}",
+            )
+
+
+@exception_handler
 def test_count_people_per_company(
     df: pd.DataFrame, limit: int, file_logger: logging.Logger
 ):
@@ -373,9 +454,8 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
 
         required_columns = requirements["required_columns"]
         industries = requirements["industries"]
-        cities = requirements["city"]
-        states = requirements["state"]
-        countries = requirements["country"]
+        person_location = requirements["person_location"]
+        company_location = requirements["company_location"]
         designations = requirements["desg_bucket"]
         length = requirements["sample_length"]
         min_emp = requirements["min_emp"]
@@ -383,6 +463,9 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         additional = requirements["additional_columns"]
         additional_req = requirements["additional_req"]
         people_per_company = requirements["people_per_company"]
+        phone_codes = requirements["phone_codes"]
+        currency = requirements["currency"]
+        revenue_range = requirements["revenue_range"]
 
         # FUNCTION CALLS ########################################
         test_check_sample_length(df, length, file_logger)
@@ -390,19 +473,23 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         test_duplicate_values(df, file_logger)
         test_required_columns_not_empty(df, required_columns, file_logger)
         test_match_industries(df, industries, file_logger)
-        test_location_matching(df, cities, states, countries, file_logger)
+        person_header = ["city", "state", "country"]
+        test_location_matching(df, person_location, person_header, file_logger)
+        company_header = ["company city", "company state", "company country"]
+        test_location_matching(df, company_location, company_header, file_logger)
         test_match_designations(df, designations, file_logger)
         test_number_of_employess_in_range(df, min_emp, max_emp, file_logger)
         test_max_columns_filled(df, file_logger)
         test_comapany_email_matching(df, file_logger)
         test_additional_columns(df, additional, file_logger)
         # test_additonalColumnsInReq(df, additional_req, file_logger)
-        test_phone_number_length(df, file_logger)
+        test_phone_number_length(df, phone_codes, file_logger)
         test_valid_phone_and_emails(df, file_logger)
         test_social_profile_urls(df, file_logger)
         test_excluded_phone_numbers(df, exclusion_dict["phone"], file_logger)
         test_excluded_emails(df, exclusion_dict["email"], file_logger)
         test_excluded_websites(df, exclusion_dict["website"], file_logger)
+        test_annual_revenue_range(df, revenue_range, file_logger)
         test_count_people_per_company(df, people_per_company, file_logger)
 
         # HIGHLIGHTER #############################################

@@ -34,7 +34,7 @@ def highlight_logs(excel_file: BinaryIO, filename: str, log_file: str) -> None:
     worksheet.insert_cols(max_col + 1)
 
     column_letter = get_column_letter(max_col + 1)
-    worksheet.column_dimensions[column_letter].width = 100
+    worksheet.column_dimensions[column_letter].width = 120
 
     cell = worksheet.cell(row=1, column=max_col + 1)
     cell.value = "Failure Log"
@@ -63,7 +63,7 @@ def highlight_logs(excel_file: BinaryIO, filename: str, log_file: str) -> None:
                     cell.fill = fill2
                 elif "people per company" in col_value.value:
                     cell.fill = fill3
-                elif row > max_row-1 and col < max_col:
+                elif row > max_row - 1 and col < max_col:
                     cell.fill = fill4
 
                 col_value.fill = fill
