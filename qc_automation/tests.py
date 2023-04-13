@@ -29,6 +29,10 @@ def exception_handler(func: Callable) -> Callable:
     return wrapper
 
 
+def fix_column_name(column):
+    return " ".join(column.split()).lower()
+
+
 @exception_handler
 def test_check_sample_length(
     df: pd.DataFrame, length: int, file_logger: logging.Logger
@@ -237,19 +241,18 @@ def test_max_columns_filled(df: pd.DataFrame, file_logger: logging.Logger) -> No
 
 @exception_handler
 def test_comapany_email_matching(df: pd.DataFrame, file_logger: logging.Logger) -> None:
-    column_index = list(df.columns).index("work email") + 1
+    column_index = list(df.columns).index("company") + 1
 
     for index, row in df.iterrows():
-        email = str(row["work email"]).lower()
-        company = str(row["company"]).lower()
+        company = str(row["company"].split()[0]).lower()
         website = str(row["website"]).lower()
+        linkedin = str(row["company linkedin url"]).lower()
 
         company = "".join(company.split())
-        domain = email.split("@")[1].split(".")[0]
-        if not (domain in company or domain in website):
+        if not (company in website or company in linkedin):
             file_logger.log(
                 logging.DEBUG,
-                f"{index+2}@{column_index}: work email domain not matching company/website",
+                f"{index+2}@{column_index}: company not matching website/linkedin",
             )
 
 
@@ -337,6 +340,65 @@ def test_social_profile_urls(df: pd.DataFrame, file_logger: logging.Logger) -> N
 
 
 @exception_handler
+def test_name_with_personal_linkedin(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    column_index = list(df.columns).index("person linkedin url") + 1
+    for index, row in df.loc[:, ["first name", "person linkedin url"]].iterrows():
+        if str(row[0]).lower() not in str(row[1]).lower():
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index}: person linkedin didnot match with first name",
+            )
+
+
+@exception_handler
+def test_annual_revenue_range(
+    df: pd.DataFrame, revenue_range: list[int], file_logger: logging.Logger
+) -> None:
+    min_revenue, max_revenue = revenue_range
+    column_index = list(df.columns).index("annual revenue") + 1
+
+    for index, revenue in df["annual revenue"].iteritems():
+        revenue = fix_revenue(str(revenue))
+        isValid = True
+
+        if min_revenue != -1 and max_revenue != -1:
+            if not (min_revenue <= revenue <= max_revenue):
+                isValid = False
+                message = f"annual revenue not in range {min_revenue}-{max_revenue}"
+        elif min_revenue != -1:
+            if not (revenue >= min_revenue):
+                isValid = False
+                message = f"annual revenue is less than {min_revenue}"
+        elif max_revenue != -1:
+            if not (revenue <= max_revenue):
+                isValid = False
+                message = f"annual revenue is greater than {max_revenue}"
+        elif revenue == 0:
+            isValid = False
+            message = f"annual revenue value missing"
+
+        if not isValid:
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index}: {message}",
+            )
+
+
+@exception_handler
+def test_check_funding_columns(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    columns = ["total funding", "latest funding", "latest funding amount", "last raised at"]
+    column_indices = [list(df.columns).index(column) for column in columns]
+    funding_df = df.loc[:, columns]
+    for index, row in funding_df.iterrows():
+        if all(str(row[column]) == "nan" for column in funding_df):
+            for column_index in column_indices:
+                file_logger.log(
+                    logging.DEBUG,
+                    f"{index+2}@{column_index+1}: funding data not available"
+                )
+
+
+@exception_handler
 def test_excluded_phone_numbers(
     df: pd.DataFrame, ex_list: list, file_logger: logging.Logger
 ) -> None:
@@ -385,40 +447,6 @@ def test_excluded_websites(
 
 
 @exception_handler
-def test_annual_revenue_range(
-    df: pd.DataFrame, revenue_range: list[int], file_logger: logging.Logger
-) -> None:
-    min_revenue, max_revenue = revenue_range
-    column_index = list(df.columns).index("annual revenue")
-
-    for index, revenue in df["annual revenue"].iteritems():
-        revenue = fix_revenue(str(revenue))
-        isValid = True
-
-        if min_revenue != -1 and max_revenue != -1:
-            if not (min_revenue <= revenue <= max_revenue):
-                isValid = False
-                message = f"annual revenue not in range {min_revenue}-{max_revenue}"
-        elif min_revenue != -1:
-            if not (revenue >= min_revenue):
-                isValid = False
-                message = f"annual revenue is less than {min_revenue}"
-        elif max_revenue != -1:
-            if not (revenue <= max_revenue):
-                isValid = False
-                message = f"annual revenue is greater than {max_revenue}"
-        elif revenue == 0:
-            isValid = False
-            message = f"annual revenue value missing"
-
-        if not isValid:
-            file_logger.log(
-                logging.DEBUG,
-                f"{index+2}@{column_index+1}: {message}",
-            )
-
-
-@exception_handler
 def test_count_people_per_company(
     df: pd.DataFrame, limit: int, file_logger: logging.Logger
 ):
@@ -450,7 +478,7 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
 
         file_logger = Logger(log_file)
         df = pd.read_excel(temp_file, sheet_name=1)
-        df.columns = [column.lower() for column in list(df.columns)]
+        df.columns = [fix_column_name(column) for column in list(df.columns)]
 
         required_columns = requirements["required_columns"]
         industries = requirements["industries"]
@@ -467,15 +495,17 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         currency = requirements["currency"]
         revenue_range = requirements["revenue_range"]
 
+        person_header = ["city", "state", "country"]
+        company_header = ["company city", "company state", "company country"]
+
+
         # FUNCTION CALLS ########################################
         test_check_sample_length(df, length, file_logger)
         test_no_duplicate_rows(df, file_logger)
         test_duplicate_values(df, file_logger)
         test_required_columns_not_empty(df, required_columns, file_logger)
         test_match_industries(df, industries, file_logger)
-        person_header = ["city", "state", "country"]
         test_location_matching(df, person_location, person_header, file_logger)
-        company_header = ["company city", "company state", "company country"]
         test_location_matching(df, company_location, company_header, file_logger)
         test_match_designations(df, designations, file_logger)
         test_number_of_employess_in_range(df, min_emp, max_emp, file_logger)
@@ -486,10 +516,12 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         test_phone_number_length(df, phone_codes, file_logger)
         test_valid_phone_and_emails(df, file_logger)
         test_social_profile_urls(df, file_logger)
+        test_name_with_personal_linkedin(df, file_logger)
+        test_annual_revenue_range(df, revenue_range, file_logger)
+        test_check_funding_columns(df, file_logger)
         test_excluded_phone_numbers(df, exclusion_dict["phone"], file_logger)
         test_excluded_emails(df, exclusion_dict["email"], file_logger)
         test_excluded_websites(df, exclusion_dict["website"], file_logger)
-        test_annual_revenue_range(df, revenue_range, file_logger)
         test_count_people_per_company(df, people_per_company, file_logger)
 
         # HIGHLIGHTER #############################################
