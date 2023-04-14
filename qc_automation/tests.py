@@ -47,14 +47,16 @@ def test_check_sample_length(
 @exception_handler
 def test_no_duplicate_rows(df: pd.DataFrame, file_logger: logging.Logger) -> None:
     duplicated = df[
-        df.duplicated(subset=["first name", "primary phone", "work email"], keep=False)
+        df.duplicated(
+            subset=["first name", "person linkedin url", "work email"], keep=False
+        )
     ]
     indices = duplicated.index.to_list()
     if indices:
         for i, index in enumerate(indices):
             file_logger.log(
                 logging.DEBUG,
-                f"{index+2}@1: duplicate values found for {duplicated.iloc[i]['First Name']}",
+                f"{index+2}@1: duplicate values found for {duplicated.iloc[i]['first name']}",
             )
 
 
@@ -270,6 +272,23 @@ def test_additional_columns(
 
 
 @exception_handler
+def test_additonal_columns_in_req(
+    df: pd.DataFrame, additional_req: dict, file_logger: logging.Logger
+) -> None:
+    for column in additional_req:
+        expected_values = additional_req[column]
+        column_index = list(df.columns).index(column) + 1
+        column_values = df[column].to_list()
+
+        for index, value in enumerate(column_values):
+            if str(value).lower() not in expected_values:
+                file_logger.log(
+                    logging.DEBUG,
+                    f"{index+2}@{column_index}: {column} value {value} not in additional requirements",
+                )
+
+
+@exception_handler
 def test_phone_number_length(
     df: pd.DataFrame, phone_codes: list[str], file_logger: logging.Logger
 ) -> None:
@@ -308,6 +327,19 @@ def test_valid_phone_and_emails(df: pd.DataFrame, file_logger: logging.Logger) -
 
 
 @exception_handler
+def test_invalid_work_email(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    column_index = list(df.columns).index("work email") + 1
+    domains = ["gmail", "hotmail", "yahoo", "rediff", "outlook"]
+    for index, email in df["work email"].iteritems():
+        for domain in domains:
+            if domain in email:
+                file_logger.log(
+                    logging.DEBUG,
+                    f"{index+2}@{column_index}: work email is invalid",
+                )
+
+
+@exception_handler
 def test_social_profile_urls(df: pd.DataFrame, file_logger: logging.Logger) -> None:
     plink = list(df.columns).index("person linkedin url") + 1
     clink = list(df.columns).index("company linkedin url") + 1
@@ -320,34 +352,75 @@ def test_social_profile_urls(df: pd.DataFrame, file_logger: logging.Logger) -> N
         facebook = row["facebook url"]
         twitter = row["twitter url"]
 
-        if str(personal_linkedin) != "nan" and "linkedin" not in personal_linkedin:
+        if "www.linkedin.com/in/" not in str(personal_linkedin):
             file_logger.log(
                 logging.DEBUG,
                 f"{index+2}@{plink}: invalid personal linkedin url",
             )
 
-        if str(company_linkedin) != "nan" and "linkedin" not in company_linkedin:
+        if "www.linkedin.com/company/" not in str(company_linkedin):
             file_logger.log(
                 logging.DEBUG,
                 f"{index+2}@{clink}: invalid company linkedin url",
             )
 
-        if str(facebook) != "nan" and "facebook" not in facebook:
+        if "facebook" not in str(facebook):
             file_logger.log(logging.DEBUG, f"{index+2}@{falink}: invalid facebook url")
 
-        if str(twitter) != "nan" and "twitter" not in twitter:
+        if "twitter" not in str(twitter):
             file_logger.log(logging.DEBUG, f"{index+2}@{twlink}: invalid twitter url")
 
 
 @exception_handler
-def test_name_with_personal_linkedin(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+def test_name_with_personal_linkedin(
+    df: pd.DataFrame, file_logger: logging.Logger
+) -> None:
     column_index = list(df.columns).index("person linkedin url") + 1
-    for index, row in df.loc[:, ["first name", "person linkedin url"]].iterrows():
-        if str(row[0]).lower() not in str(row[1]).lower():
+    for index, row in df.loc[
+        :, ["first name", "last name", "person linkedin url"]
+    ].iterrows():
+        first = str(row[0]).lower()
+        last = str(row[1]).lower()
+        linkedin = str(row[2]).lower()
+        if first not in linkedin and last not in linkedin:
             file_logger.log(
                 logging.DEBUG,
                 f"{index+2}@{column_index}: person linkedin didnot match with first name",
             )
+
+
+@exception_handler
+def test_website_urls(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    column_index = list(df.columns).index("website") + 1
+    for index, row in df.loc[:, ["company", "website"]].iterrows():
+        company = str(row[0]).split()[0].lower()
+        website = str(row[1]).lower()
+        if not company in website:
+            file_logger.log(
+                logging.DEBUG,
+                f"{index+2}@{column_index}: website url not matching with company",
+            )
+
+
+@exception_handler
+def test_nan_values(df: pd.DataFrame, file_logger: logging.Logger) -> None:
+    columns = [
+        "total funding",
+        "latest funding",
+        "latest funding amount",
+        "last raised at",
+        "annual revenue",
+    ]
+    columns = list(filter(lambda col: col in df.columns, columns))
+    column_indices = [list(df.columns).index(column) for column in columns]
+    for index, row in df.iterrows():
+        for cindex, col in enumerate(row):
+            if cindex not in column_indices:
+                if str(col).lower() in ["nan", "unavailable", "not found", "n/a"]:
+                    file_logger.log(
+                        logging.DEBUG,
+                        f"{index+2}@{cindex+1}: ",
+                    )
 
 
 @exception_handler
@@ -386,7 +459,12 @@ def test_annual_revenue_range(
 
 @exception_handler
 def test_check_funding_columns(df: pd.DataFrame, file_logger: logging.Logger) -> None:
-    columns = ["total funding", "latest funding", "latest funding amount", "last raised at"]
+    columns = [
+        "total funding",
+        "latest funding",
+        "latest funding amount",
+        "last raised at",
+    ]
     column_indices = [list(df.columns).index(column) for column in columns]
     funding_df = df.loc[:, columns]
     for index, row in funding_df.iterrows():
@@ -394,7 +472,7 @@ def test_check_funding_columns(df: pd.DataFrame, file_logger: logging.Logger) ->
             for column_index in column_indices:
                 file_logger.log(
                     logging.DEBUG,
-                    f"{index+2}@{column_index+1}: funding data not available"
+                    f"{index+2}@{column_index+1}: funding data not available",
                 )
 
 
@@ -451,7 +529,7 @@ def test_count_people_per_company(
     df: pd.DataFrame, limit: int, file_logger: logging.Logger
 ):
     if str(limit).isdigit():
-        column_index = list(df.columns).index("company")
+        column_index = list(df.columns).index("company") + 1
         counts = df["company"].value_counts()
         groups = dict(df.groupby("company").groups)
         for company in groups:
@@ -460,7 +538,7 @@ def test_count_people_per_company(
                 for index in count[limit:]:
                     file_logger.log(
                         logging.DEBUG,
-                        f"{index+2}@{column_index+1}: number of people per company > requirements",
+                        f"{index+2}@{column_index}: number of people per company > requirements [duplicate]",
                     )
 
 
@@ -498,7 +576,6 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         person_header = ["city", "state", "country"]
         company_header = ["company city", "company state", "company country"]
 
-
         # FUNCTION CALLS ########################################
         test_check_sample_length(df, length, file_logger)
         test_no_duplicate_rows(df, file_logger)
@@ -509,12 +586,13 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         test_location_matching(df, company_location, company_header, file_logger)
         test_match_designations(df, designations, file_logger)
         test_number_of_employess_in_range(df, min_emp, max_emp, file_logger)
-        test_max_columns_filled(df, file_logger)
         test_comapany_email_matching(df, file_logger)
         test_additional_columns(df, additional, file_logger)
-        # test_additonalColumnsInReq(df, additional_req, file_logger)
+        test_additonal_columns_in_req(df, additional_req, file_logger)
         test_phone_number_length(df, phone_codes, file_logger)
         test_valid_phone_and_emails(df, file_logger)
+        test_invalid_work_email(df, file_logger)
+        test_website_urls(df, file_logger)
         test_social_profile_urls(df, file_logger)
         test_name_with_personal_linkedin(df, file_logger)
         test_annual_revenue_range(df, revenue_range, file_logger)
@@ -523,6 +601,8 @@ def main(excel_file: BinaryIO, log_file: str, filename: str):
         test_excluded_emails(df, exclusion_dict["email"], file_logger)
         test_excluded_websites(df, exclusion_dict["website"], file_logger)
         test_count_people_per_company(df, people_per_company, file_logger)
+        test_max_columns_filled(df, file_logger)
+        test_nan_values(df, file_logger)
 
         # HIGHLIGHTER #############################################
         highlight_logs(temp_file, filename, log_file)

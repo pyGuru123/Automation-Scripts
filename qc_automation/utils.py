@@ -12,20 +12,20 @@ def splitByComma(string: str) -> list:
     return []
 
 
-def fix_revenue(revenue: str) -> str:
+def fix_revenue(revenue: str) -> int:
     if revenue != "nan":
         return int(float(revenue))
     return 0
 
 
-def get_industries(df: pd.DataFrame):
+def get_industries(df: pd.DataFrame) -> list[str]:
     industries = []
     if "industry" in df.columns:
         industries = splitByComma(df.loc[row_num, "industry"])
     return industries
 
 
-def get_person_location(df: pd.DataFrame):
+def get_person_location(df: pd.DataFrame) -> list[list[str]]:
     city = []
     state = []
     country = []
@@ -40,7 +40,7 @@ def get_person_location(df: pd.DataFrame):
     return [city, state, country]
 
 
-def get_company_location(df: pd.DataFrame):
+def get_company_location(df: pd.DataFrame) -> list[list[str]]:
     company_city = []
     company_state = []
     company_country = []
@@ -64,11 +64,11 @@ def get_company_location(df: pd.DataFrame):
     return [company_city, company_state, company_country]
 
 
-def get_sample_length(df: pd.DataFrame):
+def get_sample_length(df: pd.DataFrame) -> int:
     return df.loc[row_num, "quantity"] or 1
 
 
-def get_designation_bucket(df: pd.DataFrame):
+def get_designation_bucket(df: pd.DataFrame) -> dict[str, list]:
     designation = []
     if str(df.loc[row_num, "designation"]).lower() != "n/a":
         BUCKET = load_bucket()
@@ -84,17 +84,17 @@ def get_designation_bucket(df: pd.DataFrame):
     return desg_bucekt
 
 
-def get_number_of_employees(df: pd.DataFrame):
+def get_number_of_employees(df: pd.DataFrame) -> list[int]:
     min_emp, max_emp = 0, 50000000
     if "# employees" in df.columns:
         num_emp = df.loc[row_num, "# employees"]
         if str(num_emp) != "n/a":
             min_emp, max_emp = map(int, num_emp.split("-"))
 
-    return min_emp, max_emp
+    return [min_emp, max_emp]
 
 
-def get_additional_columns(df: pd.DataFrame):
+def get_additional_columns(df: pd.DataFrame) -> list[str]:
     additional_columns = []
     if "additional columns" in df.columns:
         additional_column_value = str(df.loc[row_num, "additional columns"]).lower()
@@ -105,7 +105,7 @@ def get_additional_columns(df: pd.DataFrame):
     return additional_columns
 
 
-def get_additional_requirements(df: pd.DataFrame):
+def get_additional_requirements(df: pd.DataFrame) -> dict[str, list]:
     additional_req = {}
     if "additional columns" in df.columns:
         additional_columns = get_additional_columns(df)
@@ -116,7 +116,7 @@ def get_additional_requirements(df: pd.DataFrame):
     return additional_req
 
 
-def get_people_per_company(df: pd.DataFrame):
+def get_people_per_company(df: pd.DataFrame) -> int:
     people_per_company = 0
     if "number of people/company" in df.columns:
         people_per_company = df.loc[row_num, "number of people/company"]
@@ -141,7 +141,7 @@ def get_currency(df: pd.DataFrame) -> list[str]:
     return ["₹"]
 
 
-def get_annual_revenue_range(df: pd.DataFrame):
+def get_annual_revenue_range(df: pd.DataFrame) -> list[int]:
     min_revenue = -1
     max_revenue = -1
     if "min revenue" in df.columns:
@@ -153,7 +153,7 @@ def get_annual_revenue_range(df: pd.DataFrame):
         if str(revenue) != "nan":
             max_revenue = fix_revenue(revenue)
 
-    return min_revenue, max_revenue
+    return [min_revenue, max_revenue]
 
 
 def get_constraints(temp_file: BinaryIO) -> dict:

@@ -27,7 +27,7 @@ async def test_excel_file(
     if file.filename.endswith(".xlsx"):
         LOG_DIR = get_log_path()
         log_file_name = (
-            f"{os.path.splitext(file.filename)[0]}-{int(time.time() * 100)}.txt"
+            f"{os.path.splitext(file.filename)[0]}-{int(time.time() * 100)}.log"
         )
         log_path = os.path.join(LOG_DIR, log_file_name)
 
